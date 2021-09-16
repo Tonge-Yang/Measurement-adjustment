@@ -1,0 +1,564 @@
+'联系作者获取技术支持：yangtongge@126.com,QQ:3163710846
+
+Dim 订阅(), 存量板(), UMPT(), 小区资源统计(), CELL(), 切换次数(), 绝对优先级(), Fs(), Pri(), DBug(), d, dHO, dUMPT, dCELL, dPri   '数组，字典,Priority
+Dim i, j, t, CountXML, CountUMPT, CountCELL, CountHO, CountSp, CountkFor, CountFiles
+Dim myFso As Object
+Dim stm As Object
+Dim strTmp$
+Dim arrByte() As Byte, sarrByte() As Byte
+Dim fso As Object
+Dim Str$
+
+Sub run(control As IRibbonControl)
+    t = Timer
+    Call 数据整理
+End Sub
+
+
+Sub 数据整理()
+Sheet7.Activate
+ActiveSheet.Unprotect
+ReDim DBug(1 To 2, 1 To 1)
+CountXML = 1: CountUMPT = 1: CountCELL = 1: CountHO = 1: CountSp = -1: CountkFor = 3
+
+With Application.FileDialog(msoFileDialogFolderPicker)
+    If .Show Then Mypath$ = .SelectedItems(1) Else MsgBox "取消了文件选择" & Chr(10) & Chr(13) & "结束运行": Exit Sub
+End With
+
+If Right(Mypath, 1) <> "" Then Mypath = Mypath & ""
+Set fso = CreateObject("Scripting.FileSystemObject")
+t = Timer
+For Each f In fso.GetFolder(Mypath).Files
+    
+    MyName = Mypath & "\" & f.Name
+    If InStr(1, f.Name, "export_") > 0 And InStr(1, f.Name, ".xml") > 0 Then
+        On Error Resume Next
+        Open MyName For Input As #1
+        If Err.Number = 0 Then
+            On Error GoTo 0
+            arrByte = InputB(LOF(1), 1)
+            s = Split(ByteToStr(arrByte, "UTF-8"), vbLf)
+            Reset
+            Close #1
+            For i = 17 To UBound(s) Step 3
+                If Left(s(i), 23) = "            <Base name=" Then
+                    CountXML = CountXML + 1
+                End If
+            Next
+            If Left(s(i - 9), 23) = "            <Base name=" Then: CountFiles = CountFiles + 1
+            If UBound(s) < 23 Then: DBug(1, UBound(DBug, 2)) = f.Name: DBug(2, UBound(DBug, 2)) = "无具体订阅项，请核实邻区或文件": ReDim Preserve DBug(1 To 2, 1 To UBound(DBug, 2) + 1)
+        Else
+            On Error GoTo 0
+            Err.Number = 0
+            DBug(1, UBound(DBug, 2)) = f.Name: DBug(2, UBound(DBug, 2)) = "文件名异常，请修改后重新导入": ReDim Preserve DBug(1 To 2, 1 To UBound(DBug, 2) + 1)
+        End If
+        
+    ElseIf InStr(1, f.Name, "_切换次数_") > 0 And InStr(1, f.Name, ".csv") > 0 Then
+        Open MyName For Input As #1
+        ReDim 切换次数(1 To UBound(Split(StrConv(InputB(LOF(1), 1), vbUnicode), vbLf)) + 10, 1 To 11)
+        Close #1
+        Open MyName For Input As #1
+        arrByte = InputB(LOF(1), 1)
+        Close #1
+        For k = 3 To UBound(arrByte)
+            CountSp = CountSp + 1
+            If arrByte(k) = 10 And arrByte(k - 1) <> 10 And k - 1 <> 2 Then
+                ReDim sarrByte(0 To CountSp - 1)
+                For l = 0 To CountSp - 1
+                    sarrByte(l) = arrByte(CountkFor + l)
+                Next
+                CountSp = 1: CountkFor = k: k = k + 1
+                s1 = Split(Replace(Trim(ByteToStr(sarrByte, "UTF-8")), Chr(10), ""), ",")
+                If UBound(s1) = 10 Then
+                    For j = 0 To 10
+                        切换次数(CountHO, j + 1) = s1(j)
+                    Next
+                    CountHO = CountHO + 1
+                End If
+                
+                Set dHO = CreateObject("scripting.dictionary")     '切换次数，创建邻区对字典
+                dHO((切换次数(i, 3) & "") & (切换次数(i, 5) & "") & (切换次数(i, 6) & "") & (切换次数(i, 7) & "")) = i
+                
+            End If
+        Next
+        
+    ElseIf InStr(1, f.Name, "存量_板") > 0 And InStr(1, f.Name, ".csv") > 0 Then
+        Open MyName For Input As #1
+        s = Split(StrConv(InputB(LOF(1), 1), vbUnicode), vbLf)
+        Reset
+        Close #1
+        For i = 1 To UBound(s)
+            If Split(Trim(s(i - 1)), ",")(6) = "UMPT" Then
+                ReDim Preserve 存量板(1 To 8, 1 To CountUMPT)
+                For j = 0 To 7
+                    存量板(j + 1, CountUMPT) = Split(Trim(s(i - 1)), ",")(j)
+                Next
+                CountUMPT = CountUMPT + 1
+                
+            End If
+        Next
+        
+    ElseIf InStr(1, f.Name, "小区资源统计") > 0 And InStr(1, f.Name, ".csv") > 0 And CountXML < 1048676 Then
+        Open MyName For Input As #1
+        s = Split(StrConv(InputB(LOF(1), 1), vbUnicode), vbLf)
+        Reset
+        Close #1
+        For i = 1 To UBound(s)
+            If CountCELL < 2 Or Split(Trim(s(i - 1)), ",")(0) <> "网元名称" Then
+                ReDim Preserve 小区资源统计(1 To 12, 1 To CountCELL)
+                For j = 0 To 11
+                    小区资源统计(j + 1, CountCELL) = Split(Trim(s(i - 1)), ",")(j)
+                Next
+                CountCELL = CountCELL + 1
+            End If
+        Next
+        
+    End If
+Next
+
+    ReDim 订阅(1 To CountXML, 1 To 15)
+    ReDim Fs(1 To CountFiles, 1 To 4)
+    CountXML = 1: CountFiles = 1
+    For Each f In fso.GetFolder(Mypath).Files
+        MyName = Mypath & "\" & f.Name
+        If InStr(1, f.Name, "export_") > 0 And InStr(1, f.Name, ".xml") > 0 Then
+            On Error Resume Next
+            Open MyName For Input As #1
+            If Err.Number = 0 Then
+                On Error GoTo 0
+                arrByte = InputB(LOF(1), 1)
+                s = Split(ByteToStr(arrByte, "UTF-8"), vbLf)
+                Reset
+                Close #1
+                For i = 17 To UBound(s) Step 3
+                    If Left(s(i), 23) = "            <Base name=" Then
+                        订阅(CountXML, 1) = f.Name
+                        订阅(CountXML, 2) = Split(Trim(s(15)), """")(1) 'neFDN
+                        订阅(CountXML, 3) = Split(Trim(s(15)), """")(3) 'neName
+                        订阅(CountXML, 4) = Split(Trim(s(16)), """")(1) 'neName
+                        订阅(CountXML, 5) = Split(Trim(s(i)), """")(1):
+                        CountXML = CountXML + 1
+                    End If
+                Next
+                If Left(s(i - 9), 23) = "            <Base name=" Then: Fs(CountFiles, 1) = 订阅(CountXML - 1, 3): CountFiles = CountFiles + 1
+            Else
+                On Error GoTo 0
+                Err.Number = 0
+            End If
+        End If
+    Next
+    
+    If CountUMPT = 1 Then
+        DBug(1, UBound(DBug, 2)) = "存量板数据": DBug(2, UBound(DBug, 2)) = "UMPT主控板数据缺失": ReDim Preserve DBug(1 To 2, 1 To UBound(DBug, 2) + 1)
+    Else
+        ReDim UMPT(1 To CountUMPT - 1, 1 To 9)
+        Set dUMPT = CreateObject("scripting.dictionary")     '切换次数，创建邻区对字典
+        Spec = Sheet7.Cells(1, 20)
+        For i = 1 To CountUMPT - 1
+            For j = 1 To 8
+                UMPT(i, j) = 存量板(j, i)
+            Next
+            
+            If Spec = "FALSE" Or Spec = "False" Or Spec = "false" Then
+                UMPT(i, 9) = 384
+            ElseIf UMPT(i, 8) = " " Or UMPT(i, 8) = "" Or Left(UMPT(i, 8), 1) = " " Or Right(UMPT(i, 8), 1) = " " Then
+                UMPT(i, 9) = 1536
+            ElseIf Left(Split(Trim(UMPT(i, 8)), "UMPT")(1), 1) = "b" Or Left(Split(Trim(UMPT(i, 8)), "UMPT")(1), 1) = "B" Then
+                UMPT(i, 9) = 1536
+            ElseIf Left(Split(Trim(UMPT(i, 8)), "UMPT")(1), 1) = "e" Or Left(Split(Trim(UMPT(i, 8)), "UMPT")(1), 1) = "E" Then
+                UMPT(i, 9) = 2304
+            ElseIf Left(Split(Trim(UMPT(i, 8)), "UMPT")(1), 1) = "g" Or Left(Split(Trim(UMPT(i, 8)), "UMPT")(1), 1) = "G" Then
+                UMPT(i, 9) = 4608
+            End If
+            dUMPT(UMPT(i, 3) & "") = i
+        Next
+    End If
+    
+    If CountCELL = 1 Then
+        DBug(1, UBound(DBug, 2)) = "小区资源统计": DBug(2, UBound(DBug, 2)) = "小区资源统计数据缺失": ReDim Preserve DBug(1 To 2, 1 To UBound(DBug, 2) + 1)
+    Else
+        ReDim CELL(1 To CountCELL - 1, 1 To 12)
+        Set dCELL = CreateObject("scripting.dictionary")     '小区，创建ECI创建字典
+        For i = 1 To CountCELL - 1
+            For j = 1 To 12
+                CELL(i, j) = 小区资源统计(j, i)
+            Next
+        dCELL((CELL(i, 2) & "") & (CELL(i, 12) & "")) = i
+        Next
+    End If
+    
+    绝对优先级 = Sheet7.Range("A1").CurrentRegion
+    
+    
+    ReDim Pri(1 To Sheet7.[M1048576].End(3).Row - 11, 1 To 3)
+    
+        Pri(1, 1) = Sheet7.Cells(5, 15).Value '次数
+        Pri(2, 1) = Sheet7.Cells(10, 15).Value '频点
+        Pri(1, 3) = Sheet7.Cells(7, 15).Value '空
+        Pri(2, 3) = Sheet7.Cells(8, 15).Value '零
+    
+    For i = 3 To UBound(Pri)
+        Pri(i, 1) = Sheet7.Cells(i + 11, 13).Value
+        Pri(i, 2) = Sheet7.Cells(i + 11, 14).Value
+        Pri(i, 3) = Sheet7.Cells(i + 11, 15).Value
+        Pri(1, 2) = Application.WorksheetFunction.Max(Sheet7.Cells(i + 11, 15).Value, Pri(1, 3), Pri(2, 3)) '最大优先级
+    Next
+ActiveSheet.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True
+Call 数据处理
+Call 报告输出
+MsgBox "完成！导出文件在工具源目录下:" & Chr(10) & Chr(13) & "XML_" & Format(Date, "YYYYMMDD") & "  文件夹" & Chr(10) & Chr(13) & "报告在工具源目录:" & Chr(10) & Chr(13) & "耗时：" & Format(Timer - t, "#0.00") & " 秒"
+End Sub
+
+Sub 数据处理()
+'Stop
+    'MsgBox "测试XML"
+    Dim re As Object
+    Set re = CreateObject("vbscript.regexp")
+    CountFiles = 1
+    
+    
+    Set dPri = CreateObject("scripting.dictionary")     '频点组，创建频点组字典
+    For i = 1 To UBound(Pri)
+        dPri((Pri(i, 1) & "") & (Pri(i, 2) & "")) = i
+    Next
+    
+    Set d = CreateObject("scripting.dictionary")     '绝对优先级，创建邻区对字典
+    For i = 2 To UBound(绝对优先级)
+        d(绝对优先级(i, 5) & "") = i
+    Next
+    
+For Rng = 1 To UBound(订阅) - 1
+
+'本地ELCI
+    re.Pattern = ".*, 本地小区标识=(.*), 移动国家码=.*"
+    LocalCELLID = re.Replace(订阅(Rng, 5), "$1")
+    re.Pattern = ".*, 本地基站标识=(.*), 本地小区名称=.*"
+    eNodeBID = re.Replace(订阅(Rng, 5), "$1")
+    订阅(Rng, 6) = eNodeBID & LocalCELLID
+    
+'本地ECI
+    re.Pattern = ".*, ERAN小区标识=(.*)"
+    CELLID = re.Replace(订阅(Rng, 5), "$1")
+    re.Pattern = ".*, 本地基站标识=(.*), 本地小区名称=.*"
+    eNodeBID = re.Replace(订阅(Rng, 5), "$1")
+    订阅(Rng, 7) = eNodeBID & CELLID
+    
+'邻区ECI
+    re.Pattern = ".*, 小区标识=(.*), 本地小区标识=.*"
+    NCELLID = re.Replace(订阅(Rng, 5), "$1")
+    re.Pattern = ".*, 基站标识=(.*), 本地基站标识=.*"
+    NeNodeBID = re.Replace(订阅(Rng, 5), "$1")
+    订阅(Rng, 8) = NeNodeBID & NCELLID
+
+'邻区对标识
+    订阅(Rng, 11) = 订阅(Rng, 6) & 订阅(Rng, 8)
+    
+'这里是本地频点
+On Error Resume Next
+    If dCELL.ExiSts(订阅(Rng, 7) & "") Then
+        j = dCELL(订阅(Rng, 7) & "")
+        订阅(Rng, 9) = CELL(j, 9) '
+    End If
+On Error GoTo 0
+Err.Number = 0
+    
+'这里是邻区频点
+On Error Resume Next
+    If dCELL.ExiSts(订阅(Rng, 8) & "") Then
+        j = dCELL(订阅(Rng, 8) & "")
+        订阅(Rng, 10) = CELL(j, 9) '
+    End If
+On Error GoTo 0
+Err.Number = 0
+    
+'这里是切换次数
+On Error Resume Next
+    If dHO.ExiSts(订阅(Rng, 11) & "") Then
+        j = dHO(订阅(Rng, 11) & "")
+        订阅(Rng, 12) = Int(切换次数(j, 10)) + Int(切换次数(j, 11)) '
+    End If
+On Error GoTo 0
+Err.Number = 0
+    
+'这里是主控板
+If CountUMPT > 1 Then
+    If dUMPT.ExiSts(订阅(Rng, 3) & "") Then
+        j = dUMPT(订阅(Rng, 3) & "")
+        订阅(Rng, 14) = UMPT(j, 9)
+    End If
+Else
+    订阅(Rng, 14) = 384
+End If
+    
+'这里是频点和切换次数优先级
+    If dPri.ExiSts((订阅(Rng, 9) & "") & (订阅(Rng, 10) & "")) And Pri(2, 1) = "启用" Then
+        j = dPri((订阅(Rng, 9) & "") & (订阅(Rng, 10) & ""))
+        If Len(订阅(Rng, 12)) = 0 And Pri(1, 1) = "启用" Then
+            订阅(Rng, 13) = Application.WorksheetFunction.Min(Pri(j, 3), Pri(1, 3))
+        ElseIf Len(订阅(Rng, 12)) = 1 And 订阅(Rng, 12) - 0 = 0 And Pri(1, 1) = "启用" Then
+            订阅(Rng, 13) = Application.WorksheetFunction.Min(Pri(j, 3), Pri(2, 3))
+        Else
+            订阅(Rng, 13) = Pri(j, 3)
+        End If
+        
+    ElseIf Len(订阅(Rng, 12)) = 0 And Pri(1, 1) = "启用" Then
+        订阅(Rng, 13) = Pri(1, 3)
+
+    ElseIf Len(订阅(Rng, 12)) = 1 And 订阅(Rng, 12) - 0 = 0 And Pri(1, 1) = "启用" Then
+        订阅(Rng, 13) = Pri(2, 3)
+     
+    Else
+        订阅(Rng, 13) = Pri(1, 2) + 1
+    End If
+
+'这里是绝对优先级
+    If d.ExiSts(订阅(Rng, 11) & "") And Fs(CountFiles, 2) < 订阅(Rng, 14) Then '这里是邻区对的绝对优先级
+        j = d(订阅(Rng, 11) & "")
+        订阅(Rng, 15) = 绝对优先级(j, 6)
+        If 绝对优先级(j, 6) = "true" Then: Fs(CountFiles, 2) = Fs(CountFiles, 2) + 1
+        If 订阅(Rng, 3) <> 订阅(Rng + 1, 3) Then: CountFiles = CountFiles + 1
+        
+    ElseIf d.ExiSts(订阅(Rng, 6) & "") And Fs(CountFiles, 2) < 订阅(Rng, 14) Then '这里是全量小区的绝对优先级
+        j = d(订阅(Rng, 6) & "")
+        订阅(Rng, 15) = 绝对优先级(j, 6)
+        If 绝对优先级(j, 6) = "true" Then: Fs(CountFiles, 2) = Fs(CountFiles, 2) + 1
+        If 订阅(Rng, 3) <> 订阅(Rng + 1, 3) Then: CountFiles = CountFiles + 1
+        
+    ElseIf Fs(CountFiles, 2) >= 订阅(Rng, 14) Then
+        订阅(Rng, 15) = "false"
+        If 订阅(Rng, 3) <> 订阅(Rng + 1, 3) Then: CountFiles = CountFiles + 1
+    End If
+
+Next
+
+Call 优先级排序
+End Sub
+
+
+Sub 优先级排序()
+
+If Pri(1, 1) = "停用" And Pri(2, 1) = "停用" Then
+    '跳过
+Else
+    Pri(2, 2) = Pri(1, 2)
+    
+    For j = 1 To Pri(1, 2) + 1
+        CountFiles = 1
+    
+        For i = 1 To UBound(订阅) - 1
+    
+            If 订阅(i, 15) = "" And Fs(CountFiles, 2) < 订阅(i, 14) And 订阅(i, 13) = j Then
+                订阅(i, 15) = "true": Fs(CountFiles, 2) = Fs(CountFiles, 2) + 1
+                
+            ElseIf 订阅(i, 15) = "true" Then
+                '跳过
+            ElseIf 订阅(i, 15) = "" And Fs(CountFiles, 2) >= 订阅(i, 14) Then
+            
+                订阅(i, 15) = "false"
+                
+            ElseIf 订阅(i, 15) = "" And j = Pri(1, 2) + 1 Then
+                订阅(i, 15) = "false"
+            
+            End If
+            
+            If 订阅(i, 3) <> 订阅(i + 1, 3) And 订阅(i + 1, 3) <> "" Then: Fs(CountFiles, 3) = 订阅(i, 14): CountFiles = CountFiles + 1
+            
+        Next
+    Next
+    
+    If UBound(订阅) <= 1048570 And (Sheet7.Cells(5, 20) = "TRUE" Or Sheet7.Cells(5, 20) = "True" Or Sheet7.Cells(5, 20) = "true") Then: Sheet2.Range("A2").Resize(CountXML - 1, 15) = 订阅: Sheets("多个XML").Visible = True: Sheet3.Activate
+End If
+Call 生成多个XML
+End Sub
+
+Sub 生成多个XML()
+Dim fso As Object
+Dim f$
+Dim Str$
+
+CountXML = 1
+
+On Error Resume Next
+VBA.MkDir ThisWorkbook.Path & "\XML_" & Format(Date, "YYYYMMDD")
+On Error GoTo 0
+Err.Number = 0
+
+For j = 1 To UBound(订阅) - 1
+If 订阅(j, 1) <> 订阅(j + 1, 1) Or j = UBound(订阅) - 1 Then
+
+    f = 订阅(j, 1)
+        On Error Resume Next
+    Kill ThisWorkbook.Path & "\XML_" & Format(Date, "YYYYMMDD") & f
+        On Error GoTo 0
+        Err.Number = 0
+    Open ThisWorkbook.Path & "\XML_" & Format(Date, "YYYYMMDD") & "\" & f For Output As #2
+
+    '。。。。。。标题部分。。。。。。。。。。。。。。。。。。。。。。。。。
+    '。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+        Str = "<?xml version=" & """1.0""" & " encoding=" & """GBK""" & "?>"   '第一行
+        Print #2, Str                                                                                      '打印第一行
+
+        Str = "<Root>"   '第二行
+        Print #2, Str
+
+        Str = "  <NEType neTypeId=" & """91""" & " neTypeName=" & """eNodeB""" & ">" '第三行
+        Print #2, Str
+
+        Str = "    <CounterSetting>"   '第四行
+        Print #2, Str
+
+        Str = "      <FunctionSet functionsetid=" & """1526726659""" & " functionsetname=" & """切换相关测量项(LTE)""" & ">" '第五行
+        Print #2, Str
+        
+        Str = "        <FunctionSubSet functionsubsetid=" & """1526726761""" & " functionsubsetname=" & """系统内两两小区间切换入测量""" & ">" '第五行
+        Print #2, Str
+
+        Str = "          <Counter measperiod=" & """1,3""" & " unmeasperiod=" & """""" & " countertype=" & """1""" & " counterid=" & """1526730554""" & " countername=" & """通过重建到目标小区的特定两小区间切换入成功次数""" & " counterunit=" & """无""" & " counterformula=" & """""" & " description=" & """""" & " />"  '第三行
+        Print #2, Str
+
+        Str = "          <Counter measperiod=" & """1,3""" & " unmeasperiod=" & """""" & " countertype=" & """1""" & " counterid=" & """1526735517""" & " countername=" & """特定两小区间切换入尝试次数""" & " counterunit=" & """无""" & " counterformula=" & """""" & " description=" & """""" & " />"  '第三行
+        Print #2, Str
+
+        Str = "          <Counter measperiod=" & """1,3""" & " unmeasperiod=" & """""" & " countertype=" & """1""" & " counterid=" & """1526735518""" & " countername=" & """特定两小区间切换入执行次数""" & " counterunit=" & """无""" & " counterformula=" & """""" & " description=" & """""" & " />"  '第三行
+        Print #2, Str
+
+        Str = "          <Counter measperiod=" & """1,3""" & " unmeasperiod=" & """""" & " countertype=" & """1""" & " counterid=" & """1526735519""" & " countername=" & """特定两小区间切换入成功次数""" & " counterunit=" & """无""" & " counterformula=" & """""" & " description=" & """""" & " />"  '第三行
+        Print #2, Str
+
+        Str = "        </FunctionSubSet>"   '
+        Print #2, Str
+
+        Str = "      </FunctionSet>"   '
+        Print #2, Str
+
+        Str = "    </CounterSetting>"   '
+        Print #2, Str
+
+        Str = "    <ObjectSetting>"   '
+        Print #2, Str
+
+        Str = "      <ObjectTypeElement objectTypeId=" & """1526726666""" & " objTypeName=" & """基于相邻LTE小区的性能测量""" & ">" '
+        Print #2, Str
+
+        Str = "        <NEInstance neFDN=" & """" & 订阅(j, 2) & """" & " neName=" & """" & 订阅(j, 3) & """" & " allStatus=" & """false""" & ">" '"
+        Print #2, Str
+
+    '。。。。。。订阅明细。。。。。。。。。。。。。。。。。。。。。。。。。
+    '。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+        For i = CountXML To j
+            Str = "          <MeasureUnit status=" & """" & 订阅(i, 15) & """" & " description=" & """""" & ">"   '是否订阅
+            Print #2, Str                                                                                                    '打印str
+
+            Str = "            <Base name=" & """" & 订阅(i, 5) & """" & " />"                                     '订阅项
+            Print #2, Str                                                                                                    '打印str
+
+            Str = "          </MeasureUnit>"  '结束段落
+            Print #2, Str                                                                                                    '打印str
+        Next
+        
+    '。。。。。。结尾部分。。。。。。。。。。。。。。。。。。。。。。。。。
+    '。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+        Str = "        </NEInstance>"   '结尾1
+        Print #2, Str
+
+        Str = "      </ObjectTypeElement>"   '结尾2
+        Print #2, Str
+
+        Str = "    </ObjectSetting>"   '结尾3
+        Print #2, Str
+
+        Str = "  </NEType>"   '结尾4
+        Print #2, Str
+
+        Str = "</Root>"   '结尾5
+        Print #2, Str
+
+        Close #2
+        CountXML = j + 1
+End If
+Next
+    
+Sheets("多个XML").Activate
+Sheet2.Range("A1").Select
+
+End Sub
+
+Sub 报告输出()
+f = "测量统计报告.csv"
+On Error Resume Next
+Kill ThisWorkbook.Path & "\" & f
+On Error GoTo 0
+Err.Number = 0
+Open ThisWorkbook.Path & "\" & f For Output As #2
+    Str = "网元名称" & "," & "订阅测量数" & "," & "基带板测量上限"
+    Print #2, Str
+For i = 1 To UBound(Fs) - 1
+    Str = Fs(i, 1) & "," & Fs(i, 2) & "," & Fs(i, 3)
+    Print #2, Str
+Next
+    Str = Fs(UBound(Fs), 1) & "," & Fs(UBound(Fs), 2) & "," & 订阅(UBound(订阅) - 1, 14)
+    Print #2, Str
+
+Close #2
+
+f = "异常报告.csv"
+On Error Resume Next
+Kill ThisWorkbook.Path & "\" & f
+On Error GoTo 0
+Err.Number = 0
+Open ThisWorkbook.Path & "\" & f For Output As #2
+    Str = "异常文件" & "," & "异常原因"
+    Print #2, Str
+For i = 1 To UBound(DBug, 2)
+    Str = DBug(1, i) & "," & DBug(2, i)
+    Print #2, Str
+Next
+Close #2
+
+End Sub
+
+Sub 重新生成多个XML(control As IRibbonControl)
+If Sheet2.[A1048576].End(3).Row >= 2 And (Sheet7.Cells(5, 20) = "TRUE" Or Sheet7.Cells(5, 20) = "True" Or Sheet7.Cells(5, 20) = "true") Then
+    
+    Sheets("测量配置").Select
+    Sheets("多个XML").Visible = True
+    Sheet3.Activate
+    
+    t = Timer
+    
+    Rows("1").Select
+    Selection.Cut
+    Rows(Sheet2.[A1048576].End(3).Row + 1).Select
+    Selection.Insert Shift:=xlDown
+    
+    订阅 = Sheet2.Range("A1").CurrentRegion
+    
+    Rows(Sheet2.[A1048576].End(3).Row).Select
+    Selection.Cut
+    Rows("1").Select
+    Selection.Insert Shift:=xlDown
+
+    Call 生成多个XML
+    
+    Sheets("多个XML").Select
+    ActiveWindow.SelectedSheets.Visible = False
+    
+    MsgBox "手动导出完成！导出文件在工具源目录下:" & Chr(10) & Chr(13) & "XML_" & Format(Date, "YYYYMMDD") & "  文件夹" & Chr(10) & Chr(13) & "耗时：" & Format(Timer - t, "#0.00") & " 秒"
+    
+Else
+    MsgBox "未配置相关功能或无有效数据"
+End If
+End Sub
+
+Function ByteToStr(arrByte, strCharset As String) As String
+    With CreateObject("Adodb.Stream")
+        .Type = 1 'adTypeBinary
+        .Open
+        .Write arrByte
+        .Position = 0
+        .Type = 2 'adTypeText
+        .Charset = strCharset
+        ByteToStr = .Readtext
+        .Close
+    End With
+End Function

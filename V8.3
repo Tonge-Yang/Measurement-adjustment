@@ -612,7 +612,6 @@ End Sub
 
 Sub tip2(control As IRibbonControl) '
 If MsgBox("确认已仔细阅读过指导书" & Chr(10) & Chr(13) & "并明确知道解除限制可能带来的影响？", vbYesNo) = vbNo Then Exit Sub
-
     SaveSetting "邻区对", "邻区对", "邻区规格提升", "TRUE"
 End Sub
 Sub tip3(control As IRibbonControl) '

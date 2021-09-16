@@ -562,3 +562,65 @@ Function ByteToStr(arrByte, strCharset As String) As String
         .Close
     End With
 End Function
+
+Sub 生成邻区对标识()
+    Sheets("测量配置").Activate
+    Columns("A:A").Select
+    ActiveSheet.Unprotect
+    Selection.NumberFormatLocal = "@"
+    r = Sheet7.[A1048576].End(3).Row
+    For i = 2 To r
+        Sheet7.Range("E" & i) = Sheet7.Range("A" & i) & Sheet7.Range("B" & i) & Sheet7.Range("C" & i) & Sheet7.Range("D" & i).Value
+    Next
+    ActiveSheet.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True
+End Sub
+
+Sub 清空绝对优先级邻区对()
+    ActiveSheet.Unprotect
+    t = Timer
+    Sheet7.Range("A10:F1048576").Select
+    Selection.Delete Shift:=xlUp
+    MsgBox "绝对优先级邻区对清空完成！" & Chr(10) & Chr(13) & Chr(10) & Chr(13) & "耗时：" & Format(Timer - t, "#0.00") & " 秒"
+    ActiveSheet.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True
+End Sub
+
+Sub remove(control As IRibbonControl)
+'清除结果
+    Sheet2.Activate
+    ActiveWindow.LargeScroll ToRight:=-1
+    ActiveWindow.ScrollColumn = 1
+    Rows("2:2").Select
+    Range(Selection, Selection.End(xlDown)).Select
+    ActiveWindow.SmallScroll Down:=6
+    Selection.Delete Shift:=xlUp
+    Sheet2.Range("A1").Select
+End Sub
+
+Sub tip1(control As IRibbonControl) '
+
+    Sheets("测量配置").Select
+    Sheets("指导").Visible = True
+    Sheet3.Activate
+    
+    ActiveSheet.Shapes.Range(Array("Object 5")).Select
+    Selection.Verb Verb:=xlPrimary
+    
+    Sheets("指导").Select
+    ActiveWindow.SelectedSheets.Visible = False
+    
+End Sub
+
+Sub tip2(control As IRibbonControl) '
+If MsgBox("确认已仔细阅读过指导书" & Chr(10) & Chr(13) & "并明确知道解除限制可能带来的影响？", vbYesNo) = vbNo Then Exit Sub
+
+    SaveSetting "邻区对", "邻区对", "邻区规格提升", "TRUE"
+End Sub
+Sub tip3(control As IRibbonControl) '
+If MsgBox("确认已仔细阅读过指导书" & Chr(10) & Chr(13) & "并明确知道解除限制可能带来的影响？", vbYesNo) = vbNo Then Exit Sub
+    SaveSetting "邻区对", "邻区对", "允许存入导出", "TRUE"
+End Sub
+
+Sub tip4(control As IRibbonControl) '
+    SaveSetting "邻区对", "邻区对", "邻区规格提升", ""
+    SaveSetting "邻区对", "邻区对", "允许存入导出", ""
+End Sub
